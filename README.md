@@ -1,2 +1,2 @@
 # ECSE211DPM
-<h1>The labs documents for Design Principle and Method course</h1>
+<h4>The labs documents for Design Principle and Method course</h4>
