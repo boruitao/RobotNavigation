@@ -4,61 +4,71 @@ import lejos.hardware.Button;
 import lejos.hardware.ev3.LocalEV3;
 import lejos.hardware.lcd.TextLCD;
 import lejos.hardware.motor.EV3LargeRegulatedMotor;
+import lejos.hardware.port.Port;
+import lejos.hardware.sensor.EV3UltrasonicSensor;
+import lejos.hardware.sensor.SensorModes;
+import lejos.robotics.SampleProvider;
 
 public class LocalizationLab {
 
 	private static final EV3LargeRegulatedMotor leftMotor =
-		      new EV3LargeRegulatedMotor(LocalEV3.get().getPort("A"));
-		  
-		  private static final EV3LargeRegulatedMotor rightMotor =
-		      new EV3LargeRegulatedMotor(LocalEV3.get().getPort("D"));
+			new EV3LargeRegulatedMotor(LocalEV3.get().getPort("A"));
 
-		  public static final double RADIUS = 2.12; // radius of the wheel
-		  public static final double TRACK = 11.7; 		  // distance between wheels
+	private static final EV3LargeRegulatedMotor rightMotor =
+			new EV3LargeRegulatedMotor(LocalEV3.get().getPort("D"));
+	
+	private static final Port usPort = LocalEV3.get().getPort("S1");
+	
+	private static UltrasonicLocalizer ul;
 
-		  public static void main(String[] args) {
-		    int buttonChoice;
+	//static values
+	public static final int FORWARD_SPEED = 70;
+	public static final int ROTATE_SPEED = 70;
+	public static final double RADIUS = 2.12; // radius of the wheel
+	public static final double TRACK = 11.85; 		  // distance between wheels
+	public static final int DISTANCE_THRESHOLD = 30;
+	public static final int DISTANCE_MARGIN = 1;
+	public static void main(String[] args) {
+		int buttonChoice;
 
-		    final TextLCD t = LocalEV3.get().getTextLCD();
-		    Odometer odometer = new Odometer(leftMotor, rightMotor);
+		// clear the display
+		@SuppressWarnings("resource")							    // Because we don't bother to close this resource
+		SensorModes ultrasonicSensor = new EV3UltrasonicSensor(usPort);		// usSensor is the instance
+		SampleProvider usDistance = ultrasonicSensor.getMode("Distance");	// usDistance provides samples from this instance
+		float[] usData = new float[1];		// usData is the buffer in which data are returned
+		UltrasonicPoller usPoller = null;									// the selected controller on each cycle
 
-		    do {
-		      // clear the display
-		      t.clear();
+		
+		final TextLCD t = LocalEV3.get().getTextLCD();
+		Odometer odometer = new Odometer(leftMotor, rightMotor);
+		Navigation na = new Navigation(odometer,leftMotor, rightMotor, RADIUS, TRACK);
 
-		      // ask the user whether the motors should drive in a square or float
-		      t.drawString("< Left | Right >", 0, 0);
-		      t.drawString("       |        ", 0, 1);
-		      t.drawString(" Rising|Falling ", 0, 2);
-		      t.drawString(" edge  | edge   ", 0, 3);
-		      t.drawString("       |  		", 0, 4);
+		do {
+			// clear the display
+			t.clear();
 
-		      buttonChoice = Button.waitForAnyPress();
-		    } while (buttonChoice != Button.ID_LEFT && buttonChoice != Button.ID_RIGHT);
+			// ask the user whether the motors should drive in a square or float
+			t.drawString("< Left | Right >", 0, 0);
+			t.drawString("       |        ", 0, 1);
+			t.drawString(" Rising|Falling ", 0, 2);
+			t.drawString(" edge  | edge   ", 0, 3);
+			t.drawString("       |  		", 0, 4);
 
-		    if (buttonChoice == Button.ID_LEFT) {
+			buttonChoice = Button.waitForAnyPress();
+		} while (buttonChoice != Button.ID_LEFT && buttonChoice != Button.ID_RIGHT);
 
-		      
+		if (buttonChoice == Button.ID_LEFT) ul = new UltrasonicLocalizer(0, na, odometer);
+		else ul = new UltrasonicLocalizer(1, na, odometer);
+		
+		odometer.start();
+	    OdometryDisplay od = new OdometryDisplay(odometer, t,ul);
+	    od.start();
+	    usPoller = new UltrasonicPoller(usDistance, usData, ul);
+	    
+	    usPoller.start();
+	    ul.start();
 
-		    } else {
-		      // clear the display
-		      t.clear();
-
-		      // ask the user whether the motors should drive in a square or float
-		      t.drawString("< Left | Right >", 0, 0);
-		      t.drawString("  No   | with   ", 0, 1);
-		      t.drawString(" corr- | corr-  ", 0, 2);
-		      t.drawString(" ection| ection ", 0, 3);
-		      t.drawString("       |        ", 0, 4);
-		      
-		      buttonChoice = Button.waitForAnyPress();
-		      
-		      odometer.start();
-		      
-		      // spawn a new Thread to avoid SquareDriver.drive() from blocking
-		    }
-
-		    while (Button.waitForAnyPress() != Button.ID_ESCAPE);
-		    System.exit(0);
-		  }
+		while (Button.waitForAnyPress() != Button.ID_ESCAPE);
+		System.exit(0);
+	}
 }
