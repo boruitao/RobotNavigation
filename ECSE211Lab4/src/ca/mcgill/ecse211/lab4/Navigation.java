@@ -1,5 +1,11 @@
 package ca.mcgill.ecse211.lab4;
 
+/**
+ * @author Antonios Valkanas, Borui Tao
+ * @version 1.0
+ * 
+ */
+
 import lejos.hardware.motor.EV3LargeRegulatedMotor;
 
 public class Navigation{
@@ -35,17 +41,25 @@ public class Navigation{
 
 		isNavigating=true;
 
-		getPosition(odometer);
+		nowX = odometer.getX();
+		nowY = odometer.getY();
 		//calculate the angle we need to turn to
 		double theta1 = Math.atan((y-nowY)/(x-nowX))*360.0/(2*Math.PI);
 		if(x-nowX<0) theta1= 180.0 + theta1;
 		//turn to the proper angle
-		turnTo(theta1, false);
+		makeCorrectedTurn(theta1);
+		
+		System.out.println("X is " + x + " and " + "Y is " + y);
+		System.out.println("X now is " + nowX + " and " + "Y now is " + nowY);
+		
+		double travellingDis = Math.sqrt(Math.pow(x-nowX, 2) + Math.pow(y-nowY, 2));
+		System.out.println("the travDis is" + travellingDis);
 		//drive forward
 		leftMotor.setSpeed(LocalizationLab.FORWARD_SPEED);
 		rightMotor.setSpeed(LocalizationLab.FORWARD_SPEED);
-		leftMotor.forward();
-		rightMotor.forward(); 
+		leftMotor.rotate(convertDistance(LocalizationLab.RADIUS, travellingDis), true);
+		rightMotor.rotate(convertDistance(LocalizationLab.RADIUS, travellingDis), true);
+
 		//keep calling turnto and checking the distance
 		isNavigating=false;
 	}
@@ -70,7 +84,7 @@ public class Navigation{
 		 leftMotor.rotate(convertAngle(LocalizationLab.RADIUS, LocalizationLab.TRACK, theta), true);
 		 rightMotor.rotate(-convertAngle(LocalizationLab.RADIUS, LocalizationLab.TRACK, theta), false);
 	}
-	void turnTo(double theta, boolean b){
+	void turnTo(double theta){
 
 		isTurning =  true;
 		//convert to polar coordinate
@@ -86,13 +100,13 @@ public class Navigation{
 		leftMotor.setSpeed(LocalizationLab.ROTATE_SPEED);
 		rightMotor.setSpeed(LocalizationLab.ROTATE_SPEED);
 		leftMotor.rotate(-convertAngle(wheelRadius, width, turningTheta), true);
-		rightMotor.rotate(convertAngle(wheelRadius, width, turningTheta), b);
+		rightMotor.rotate(convertAngle(wheelRadius, width, turningTheta), false);
 		isTurning = false;	
 	}
 
 	boolean isNavigating(){
 		//returns true if the robot is either Navigating or Turning
-		return isNavigating || isTurning;
+		return isNavigating || isTurning || leftMotor.isMoving() && rightMotor.isMoving();
 	}
 
 	public void motorStop(){

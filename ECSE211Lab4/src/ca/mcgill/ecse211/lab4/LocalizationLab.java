@@ -1,5 +1,10 @@
 package ca.mcgill.ecse211.lab4;
 
+/**
+ * @author Antonios Valkanas, Borui Tao
+ * @version 1.0
+ */
+
 import lejos.hardware.Button;
 import lejos.hardware.ev3.LocalEV3;
 import lejos.hardware.lcd.TextLCD;
@@ -19,15 +24,17 @@ public class LocalizationLab {
 	
 	private static final Port usPort = LocalEV3.get().getPort("S1");
 	
-	private static UltrasonicLocalizer ul;
+	private static UltrasonicLocalizer ultraLoc;
+	private static LightLocalizer lightLoc;
 
 	//static values
-	public static final int FORWARD_SPEED = 70;
+	public static final int FORWARD_SPEED = 70;			
 	public static final int ROTATE_SPEED = 70;
-	public static final double RADIUS = 2.12; // radius of the wheel
-	public static final double TRACK = 11.85; 		  // distance between wheels
-	public static final int DISTANCE_THRESHOLD = 30;
+	public static final double RADIUS = 2.12; 		  // radius of the wheel
+	public static final double TRACK = 11.89; 		  // distance between wheels
+	public static final int DISTANCE_THRESHOLD = 30;  // 
 	public static final int DISTANCE_MARGIN = 1;
+	public static final double SQUARE_LENGTH = 30.48;
 	public static void main(String[] args) {
 		int buttonChoice;
 
@@ -57,16 +64,37 @@ public class LocalizationLab {
 			buttonChoice = Button.waitForAnyPress();
 		} while (buttonChoice != Button.ID_LEFT && buttonChoice != Button.ID_RIGHT);
 
-		if (buttonChoice == Button.ID_LEFT) ul = new UltrasonicLocalizer(0, na, odometer);
-		else ul = new UltrasonicLocalizer(1, na, odometer);
+		if (buttonChoice == Button.ID_LEFT) ultraLoc = new UltrasonicLocalizer(0, na, odometer);
+		else ultraLoc = new UltrasonicLocalizer(1, na, odometer);
 		
 		odometer.start();
-	    OdometryDisplay od = new OdometryDisplay(odometer, t,ul);
+	    OdometryDisplay od = new OdometryDisplay(odometer, t,ultraLoc);
 	    od.start();
-	    usPoller = new UltrasonicPoller(usDistance, usData, ul);
+	    usPoller = new UltrasonicPoller(usDistance, usData, ultraLoc);
 	    
 	    usPoller.start();
-	    ul.start();
+	    ultraLoc.start();
+	    
+	    Button.waitForAnyPress();
+		try { 
+			Thread.sleep(1000);
+		} catch (Exception e) {
+		}
+	    lightLoc = new LightLocalizer(odometer, na);
+	    double x = ultraLoc.getLocX();
+	    double y = ultraLoc.getLocY();
+	    System.out.println("The x is " + x);
+	    System.out.println("The y is " + y);
+
+	    odometer.setX(x-SQUARE_LENGTH);
+		odometer.setY(y-SQUARE_LENGTH);
+		na.travelTo(0, 0);
+		while(na.isNavigating()){
+			
+		}
+		//na.turnTo(0);
+
+	    lightLoc.start();
 
 		while (Button.waitForAnyPress() != Button.ID_ESCAPE);
 		System.exit(0);

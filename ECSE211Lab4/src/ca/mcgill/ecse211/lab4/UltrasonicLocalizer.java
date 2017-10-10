@@ -16,6 +16,9 @@ public class UltrasonicLocalizer extends Thread{
 	private boolean firstPointDetected;
 	private boolean secondPointDetected;
 
+	private double locationX;
+	private double locationY;
+	private double locationTheta;
 
 	public UltrasonicLocalizer(int choice, Navigation navigation, Odometer odometer) {
 		this.choice = choice;
@@ -26,6 +29,9 @@ public class UltrasonicLocalizer extends Thread{
 		this.correctedTheta = 0;
 		this.firstPointDetected = false;
 		this.secondPointDetected = false;
+		
+		this.locationX = 0;
+		this.locationY = 0;
 	}
 	public void processUSData(int distance) {
 		this.distance = distance;
@@ -47,18 +53,17 @@ public class UltrasonicLocalizer extends Thread{
 		while(distance > (LocalizationLab.DISTANCE_THRESHOLD + LocalizationLab.DISTANCE_MARGIN+1)){
 
 		}
+		System.out.println("   " + odometer.getTheta());
 		if(!firstPointDetected){
 			theta1 = odometer.getTheta();
-
+		
 			if (distance <= (LocalizationLab.DISTANCE_THRESHOLD - LocalizationLab.DISTANCE_MARGIN - 1)){
 				theta2 = odometer.getTheta();
 				Sound.playNote(Sound.FLUTE, 440, 250);
 			}
-			System.out.println("Theta1 is :" + theta1);
-			System.out.println("Theta2 is :" + theta2);
-
 			firstAngle = (theta1 + theta2) / 2;
 			firstPointDetected = true;
+			System.out.println("the firstPoint is" + firstAngle);
 		}
 		na.motorStop();
 		na.makeTurn(-360);
@@ -80,9 +85,10 @@ public class UltrasonicLocalizer extends Thread{
 			}
 			secondPointDetected = true;
 			secondAngle = (theta1 + theta2) / 2;
+			System.out.println("the secondPoint is" + secondAngle);
 		}
 		na.motorStop();
-		correctAngle();
+		correctAngleAndLocation();
 	}
 
 	private void risingEdge(){
@@ -95,15 +101,15 @@ public class UltrasonicLocalizer extends Thread{
 			theta1 = odometer.getTheta();
 			if (distance >= (LocalizationLab.DISTANCE_THRESHOLD + LocalizationLab.DISTANCE_MARGIN + 1)){
 				theta2 = odometer.getTheta();
+				Sound.playNote(Sound.FLUTE, 440, 250);
 			}
 
 			firstAngle = (theta1 + theta2) / 2;
-			System.out.println("Theta1 is :" + theta1);
-			System.out.println("Theta2 is :" + theta2);
+			firstPointDetected = true;
+			System.out.println("the secondPoint is" + firstAngle);
 
-			System.out.println("firstAngle is: " + firstAngle);
 		}
-		Sound.playNote(Sound.FLUTE, 440, 250);
+		na.motorStop();
 		na.makeTurn(-360);
 
 		try {
@@ -118,17 +124,27 @@ public class UltrasonicLocalizer extends Thread{
 
 			if (distance >= (LocalizationLab.DISTANCE_THRESHOLD + LocalizationLab.DISTANCE_MARGIN + 1)){
 				theta2 = odometer.getTheta();
-				na.motorStop();
+				Sound.playNote(Sound.FLUTE, 440, 250);
 			}
 			secondAngle = (theta1 + theta2) / 2;
-			System.out.println("secondAngle is: " + secondAngle);
+			secondPointDetected = true;
+			System.out.println("the secondPoint is" + secondAngle);
 		}
-		Sound.playNote(Sound.FLUTE, 440, 250);
-
-		correctAngle();
+		na.motorStop();
+		correctAngleAndLocation();
 	}
 
-	public void correctAngle(){		  
+	public void correctAngleAndLocation(){		  
+		locationTheta = (firstAngle + (360 - secondAngle) - 90) / 2 ;
+		System.out.println("We are in correction. the locaitonTheta is" + locationTheta);
+		if (choice == 0){
+			locationX = LocalizationLab.DISTANCE_THRESHOLD * Math.cos(Math.toRadians(locationTheta));
+			locationY = LocalizationLab.DISTANCE_THRESHOLD * Math.cos(Math.toRadians(locationTheta));
+		}else if (choice == 1){
+			locationX = LocalizationLab.DISTANCE_THRESHOLD * Math.sin(Math.toRadians(locationTheta));
+			locationY = LocalizationLab.DISTANCE_THRESHOLD * Math.sin(Math.toRadians(locationTheta));
+		}
+
 		firstAngle = ((firstAngle % 360) + 360) % 360;
 		secondAngle = ((secondAngle % 360) + 360) % 360;
 
@@ -139,21 +155,27 @@ public class UltrasonicLocalizer extends Thread{
 		}
 
 		Double t = odometer.getTheta();
-		System.out.println("The odometer reading is " + t);
 		correctedTheta += t;
 		correctedTheta = ((correctedTheta % 360) + 360) % 360;
 
 		
-		odometer.setTheta(correctedTheta);
-		System.out.println("The corrected theta is: "+ correctedTheta);
+		odometer.setTheta(correctedTheta);	
 		
 		na.makeCorrectedTurn(-correctedTheta);
+		System.out.println("THIS IS IMPORTANT" + correctedTheta + "   " + odometer.getTheta());
 	}
 
 	public int readUSDistance() {
 		if (this.distance > 300)
 			this.distance = 300;
 		return this.distance;
+	}
+	
+	public double getLocX(){
+		return this.locationX;
+	}
+	public double getLocY(){
+		return this.locationY;
 	}
 
 }
